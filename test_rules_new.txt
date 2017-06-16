@@ -1,4 +1,5 @@
-﻿iptables -A INPUT -i eth0 -p tcp -s 192.168.1.0/31 -d 192.168.1.0/31 -j ACCEPT
-iptables -A INPUT -i eth0 -p tcp -s 192.168.1.0/28 -d 192.168.1.0/28 -j DENY
-iptables -A OUTPUT -o eth0 -p tcp -s 192.168.1.0/31 -d 192.168.1.0/31 -j ACCEPT
-iptables -A OUTPUT -o eth0 -p tcp -s 192.168.1.0/31 -d 192.168.1.0/31 --tcp-flags SYN,ACK SYN -j ACCEPT
+﻿iptables -A INPUT -i eth0 -p tcp -s 192.168.1.0/24 -d 192.168.1.0/24 -j ACCEPT
+iptables -A INPUT -i eth0 -p tcp -s 192.168.0.0/24 -d 192.168.0.0/24 -j ACCEPT
+iptables -A OUTPUT -o eth1 -p tcp -s 192.168.1.0/23 -d 192.168.1.0/23 --tcp-flags SYN,ACK ACK,FIN -j DENY
+iptables -A OUTPUT -o eth0 -p tcp -s 192.168.1.0/24 -d 192.168.1.0/24 -j ACCEPT
+iptables -A OUTPUT -o eth0 -p tcp -s 192.168.1.0/24 -d 192.168.1.0/24 -j ACCEPT

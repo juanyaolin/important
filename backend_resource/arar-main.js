@@ -59,6 +59,11 @@ function start ( ruleList ) {
 
 	let ARARTree;
 	ARARTree = arar_create( ruleList, newRuleList, parameter );
+
+	let ruleGroupList;
+	ruleGroupList = arar_tree_traversal( ARARTree, ruleList );
+	// console.log(`\nruleGroupList:\n` + util.inspect( ruleGroupList, { showHidden: false, depth:null } ));
+	return ruleGroupList;
 };
 
 function arar_create ( originalRuleList, ruleList, parameter ) {
@@ -93,30 +98,30 @@ function arar_create ( originalRuleList, ruleList, parameter ) {
 	}
 
 	
-	console.log(`\nARARTreeRoot:\n` + util.inspect( ARARTreeRoot, { showHidden: false, depth:null } ));
+	// console.log(`\nARARTreeRoot:\n` + util.inspect( ARARTreeRoot, { showHidden: false, depth:null } ));
 	return ARARTreeRoot;
 };
 
 function segmentation ( node ) {
 	// check node exist
 	if ( node == null ) {
-		console.log( `\x1b[1m[segmentation] node is null\x1b[0m` );
+		// console.log( `\x1b[1m[segmentation] node is null\x1b[0m` );
 		return node;
 	}
 
 	// check rule in node with tcp-flag
 	if ( node['flag'] == false ){
-		console.log( `\x1b[1m[segmentation] node without tcp-flag rule\x1b[0m\nnode:\n` + util.inspect( node, { showHidden: false, depth:null } ) + `\n` );
+		// console.log( `\x1b[1m[segmentation] node without tcp-flag rule\x1b[0m\nnode:\n` + util.inspect( node, { showHidden: false, depth:null } ) + `\n` );
 		return node;
 	}
 
 	// check thas is node need to be segment
 	if ( !check_node_status( node ) ){
-		console.log(`\x1b[1m[segmentation] no need to segment\x1b[0m\nnode:\n` + util.inspect( node, { showHidden: false, depth:null } ) + `\n` );
+		// console.log(`\x1b[1m[segmentation] no need to segment\x1b[0m\nnode:\n` + util.inspect( node, { showHidden: false, depth:null } ) + `\n` );
 		return node;
 	}
 
-	console.log(`\x1b[1m[segmentation] need to segment\x1b[0m\nnode:\n` + util.inspect( node, { showHidden: false, depth:null } ) + `\n` );
+	// console.log(`\x1b[1m[segmentation] need to segment\x1b[0m\nnode:\n` + util.inspect( node, { showHidden: false, depth:null } ) + `\n` );
 
 	/* sip - dip
 	 *  ---------
@@ -459,6 +464,103 @@ function update_region_segmentation_value ( rule, parameter ) {
 	return newParameter;
 };
 
+
+
+function arar_tree_traversal ( root, originalRuleList ) {
+	let node;
+	let ruleGroupList = [];
+
+	if ( root['flag'] != true ) {
+		console.log(`\nroot without tcp-flag\nroot:\n` + util.inspect( root, { showHidden: false, depth:null } ));
+		return ruleGroupList;
+	}
+
+	initial_queue();
+	add_to_queue( root );
+	while( true ) {
+		node = delete_from_queue();
+		
+		// console.log(`\nnode:\n` + util.inspect( node, { showHidden: false, depth:null } ));
+
+		if ( node != null ) {
+			if ( node['flag'] == true ) {
+				if ( node['nodeRules'].length > 0 ) {
+					let ruleGroup = rule_group_convert(originalRuleList, node['nodeRules']);
+					if ( !check_rule_group_exist(ruleGroupList, ruleGroup) ){
+						// console.log('no this group in list');
+						ruleGroupList.push(ruleGroup);
+					}
+					else {
+						// console.log(`\nthis group has already in list\ngroup:\n` + util.inspect( node['nodeRules'], { showHidden: false, depth:null } ));
+					}
+				}
+				
+				if ( ( node['node0'] != null ) && ( node['node0']['flag'] == true ) )
+					add_to_queue( node['node0'] );
+				if ( ( node['node1'] != null ) && ( node['node1']['flag'] == true ) )
+					add_to_queue( node['node1'] );
+				if ( ( node['node2'] != null ) && ( node['node2']['flag'] == true ) )
+					add_to_queue( node['node2'] );
+				if ( ( node['node3'] != null ) && ( node['node3']['flag'] == true ) )
+					add_to_queue( node['node3'] );
+			}
+			else {
+				console.log(`\nnode without tcp-flag\nroot:\n` + util.inspect( node, { showHidden: false, depth:null } ));
+				continue;
+			}		// node without tcp
+		}
+		else break;		// node is null
+		
+	}
+	// console.log(`\nruleGroupList:\n` + util.inspect( ruleGroupList, { showHidden: false, depth: null } ));
+	return ruleGroupList;
+};
+
+function rule_group_convert ( originalRuleList, ruleList ) {
+	let newRuleList = [];
+	for (let i=0; i<ruleList.length; i++) {
+		newRuleList.push( originalRuleList[ruleList[i]['order']] );
+		// newRuleList.push( ruleList[i]['order'] );
+		// console.log(`\noriginalRuleList[ruleList['order']]:\n` + util.inspect( originalRuleList, { showHidden: false, depth:null } ));
+		// console.log(`\nruleList['order']:\n` + util.inspect( ruleList[i]['order'], { showHidden: false, depth:null } ));
+	}
+
+	// console.log(`\noriginalRuleList:\n` + util.inspect( originalRuleList, { showHidden: false, depth:null } ));
+	// console.log(`\nruleList:\n` + util.inspect( ruleList, { showHidden: false, depth:null } ));
+	// console.log(`\nnewRuleList:\n` + util.inspect( newRuleList, { showHidden: false, depth:null } ));
+	return newRuleList;
+};
+
+function check_rule_group_exist ( ruleGroupList, ruleGroup ) {
+	if ( ruleGroupList.length == 0 ) {
+		// no rule in ruleGroupList
+		return false;
+	}
+	for (let i=0; i<ruleGroupList.length; i++) {
+		// console.log(`\nruleGroupList[${i}].length = ${ruleGroupList[i].length} \nruleGroup.length = ${ruleGroup.length}`);
+		if ( ruleGroupList[i].length == ruleGroup.length ) {
+			// number of rule in the group is same
+			for (let j=0; j<ruleGroup.length; j++) {
+				// per-rule check that are they same
+				if ( ruleGroupList[i][j] !== ruleGroup[j] ){
+					// rules aren't same, break to next rule;
+					// console.log(`\nruleGroupList[i][j] = ${ruleGroupList[i][j]}\nruleGroup[j] = ${ruleGroup[j]}`);
+					break; 
+				}
+			}
+			// an entry in ruleGroupList is same as ruleGroup
+			return true;
+		}
+		else {
+			// number of rule in the group is not same, continue to next ruleGroup.
+			continue;
+		}
+	}
+	return false;
+};
+
+
+
 function looking_for_region_segmentation_value ( ruleList ) {
 	let maxSIP = ruleList[0]['max_sip'],
 		minSIP = ruleList[0]['min_sip'],
@@ -501,9 +603,12 @@ function looking_for_region_segmentation_value ( ruleList ) {
 	return parameter;
 };
 
+
+
 function rule_list_convert ( ruleList ) {
 	let newRuleList = [];
-	for (let i=0; i<ruleList.length; i++){
+
+	for (let i=0; i<ruleList.length; i++) {
 		let rule = new ARARRule();
 		rule['order'] = i;
 		rule['max_sip'] = ruleList[i]['source_ip']['__param__']['boardcastAddrValue'];
@@ -519,6 +624,8 @@ function rule_list_convert ( ruleList ) {
 	// console.log(`\nnewRuleList:\n` + util.inspect( newRuleList, { showHidden: false, depth:null } ));
 	return newRuleList;
 };
+
+
 
 function initial_queue () {
 	QueueExcute = 0;
@@ -546,5 +653,7 @@ function delete_from_queue () {
 	}
 	return Queue[QueueNumber][QueueExcute];
 };
+
+
 
 module.exports.start = start;

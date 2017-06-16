@@ -4,6 +4,7 @@ const path = require('path');
 const util = require('util');
 const aclParser = require( path.join(__dirname, 'acl-parser.js') );
 const ararMain = require( path.join(__dirname, 'arar-main.js') );
+const integrity = require( path.join(__dirname, 'integrity-check.js') );
 
 let aclData = {};
 
@@ -32,7 +33,8 @@ function acl_import_handler ( filepath ) {
 	
 	lineReader.on( 'close', () => {
 		let aclObject = {},
-			ruleList = [];
+			ruleList = [],
+			ruleGroupList;
 
 		aclObject['normal'] = aclData;
 		aclObject['exchanged'] = exchange_source_destination_info(aclData);
@@ -41,20 +43,9 @@ function acl_import_handler ( filepath ) {
 		
 		start_time = new Date().getTime();
 		
-		ararMain.start(ruleList);
+		ruleGroupList = ararMain.start(ruleList);
+		integrity.start(ruleList, ruleGroupList);
 		
-		
-		// /* Clone ruleList test */
-		// console.log( `\nruleList[0]:\n` + util.inspect( ruleList[0], { showHidden: false, depth:null } ) );
-		// console.log( `\nruleListClone[0]:\n` + util.inspect( ruleList.slice(0, 1), { showHidden: false, depth:null } ) );
-
-		// ruleList[0]['fortest'] = "fortest";
-		// console.log( `\nruleList[0]:\n` + util.inspect( ruleList[0], { showHidden: false, depth:null } ) );
-		// console.log( `\nruleListClone[0]:\n` + util.inspect( ruleList.slice(0, 1), { showHidden: false, depth:null } ) );
-
-		// console.log( util.inspect( aclObject, { showHidden: false, depth:null } ) );
-		// console.log( util.inspect( ruleList, { showHidden: false, depth:null } ) );
-		// console.log( ruleList.length );
 		
 
 
