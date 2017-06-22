@@ -298,7 +298,7 @@ function ckeck_integrity_of_form ( form, newForm, interface, in_out, callback ) 
 		}
 		newForm.push(insertInterface);
 	}
-	console.log('fulls = ' + fulls);
+	// console.log('fulls = ' + fulls);
 	if ( fulls >= 2 )
 		return true;
 	else{
@@ -309,7 +309,7 @@ function ckeck_integrity_of_form ( form, newForm, interface, in_out, callback ) 
 }
 
 function check_anomaly ( form, callback ) {
-	console.log(`\nform:\n` + util.inspect( form, { showHidden: false, depth:null } ));
+	// console.log(`\nform:\n` + util.inspect( form, { showHidden: false, depth:null } ));
 
 
 	for (let i=0; i<form.length; i++) {
@@ -323,7 +323,9 @@ function check_anomaly ( form, callback ) {
 					alarm = null;
 
 
-				console.log('the right interface\n' + i + '\t' + keys);
+				// console.log('the right interface\n' + i + '\t' + keys);
+
+
 				// let currentBound = form[i][keys];
 				if ( form[i]['INPUT']['SYN'][0]['action'] == 'ACCEPT' ) {
 					synInterface.push('INPUT');
@@ -334,8 +336,8 @@ function check_anomaly ( form, callback ) {
 					synCase++;
 				}
 
-				console.log('synCase = ' + synCase);
-				console.log('synInterface = ' + synInterface);
+				// console.log('synCase = ' + synCase);
+				// console.log('synInterface = ' + synInterface);
 				switch ( synCase ) {
 					case 0:
 						for (let x=0; x<form.length; x++) {
@@ -356,7 +358,137 @@ function check_anomaly ( form, callback ) {
 
 
 					case 1:
-						
+						// checking SYN series
+						if ( synInterface[0] == 'INPUT' ) {
+							if ( form[i]['OUTPUT']['SYN+ACK'][0]['action'] != 'ACCEPT' ){
+								alarm = `[eth${i}] SYN of INPUT is ACCEPT, but SYN+ACK of OUTPUT is DENY.`
+								callback(alarm);
+							}
+						}
+						else if ( synInterface[0] == 'OUTPUT' ) {
+							if ( form[i]['INPUT']['SYN+ACK'][0]['action'] != 'ACCEPT' ){
+								alarm = `[eth${i}] SYN of OUTPUT is ACCEPT, but SYN+ACK of INPUT is DENY.`
+								callback(alarm);
+							}
+						}
+						if ( (form[i]['INPUT']['ACK'][0]['action'] != 'ACCEPT') || (form[i]['OUTPUT']['ACK'][0]['action'] != 'ACCEPT') ) {
+							alarm = `[eth${i}] ACK of INPUT or OUTPUT is DENY.`
+							callback(alarm);
+						}
+
+
+
+						// checking FIN series
+						if ( form[i]['INPUT']['FIN'][0]['action'] == 'ACCEPT' ) {
+							if ( form[i]['OUTPUT']['FIN+ACK'][0]['action'] == 'ACCEPT' ) {
+								finInterface.push('INPUT');
+								finCase++;
+							}
+							else if ( form[i]['OUTPUT']['FIN+ACK'][0]['action'] != 'ACCEPT' ) {
+								alarm = `[eth${i}] FIN of INPUT is ACCEPT, but FIN+ACK of OUTPUT is DENY.`
+								callback(alarm);
+							}
+						}
+						if ( form[i]['OUTPUT']['FIN'][0]['action'] == 'ACCEPT' ) {
+							if ( form[i]['INPUT']['FIN+ACK'][0]['action'] == 'ACCEPT' ) {
+								finInterface.push('OUTPUT');
+								finCase++;
+							}
+							else if ( form[i]['INPUT']['FIN+ACK'][0]['action'] != 'ACCEPT' ) {
+								alarm = `[eth${i}] FIN of OUTPUT is ACCEPT, but FIN+ACK of INPUT is DENY.`
+								callback(alarm);
+							}
+						}
+						if ( finCase == 0 ){
+							alarm = `[eth${i}] both INPUT and OUTPUT cannot pass FIN series flag correctly.`
+							callback(alarm);
+						}
+
+						// checking RST series
+						if ( form[i]['INPUT']['RST'][0]['action'] == 'ACCEPT' ) {
+							rstInterface.push('INPUT');
+							rstCase++;
+						}
+						if ( form[i]['OUTPUT']['RST'][0]['action'] == 'ACCEPT' ) {
+							rstInterface.push('OUTPUT');
+							rstCase++;
+						}
+						if ( rstCase == 0 ) {
+							alarm = `[eth${i}] both INPUT and OUTPUT cannot pass RST flag.`
+							callback(alarm);
+						}
+
+						// console.log('finInterface = ' + finInterface);
+						// console.log('rstInterface = ' + rstInterface);
+						if ( alarm != null ) {
+							alarm = `[eth${i}] some warning is occured on current interface, please check information above.`
+							callback(alarm);
+							break;
+						}
+
+						// checking another interface
+						for (let x=0; x<form.length; x++) {
+							if ( x == i )
+								continue;
+
+							// checking SYN series
+							if ( synInterface[0] == 'INPUT' ) {
+								if ( (form[x]['OUTPUT']['SYN'][0]['action'] !='ACCEPT') || (form[x]['INPUT']['SYN+ACK'][0]['action'] !='ACCEPT') ) {
+									alarm = `[eth${x}] SYN of INPUT of eth${i} is ACCEPT, but SYN of OUTPUT or SYN+ACK of INPUT of eth${x} is DENY.`
+									callback(alarm);
+								}
+							}
+							else if ( synInterface[0] == 'OUTPUT' ) {
+								if ( (form[x]['INPUT']['SYN'][0]['action'] !='ACCEPT') || (form[x]['OUTPUT']['SYN+ACK'][0]['action'] !='ACCEPT') ) {
+									alarm = `[eth${x}] SYN of OUTPUT of eth${i} is ACCEPT, but SYN of INPUT or SYN+ACK of OUTPUT of eth${x} is DENY.`
+									callback(alarm);
+								}
+							}
+
+							// checking ACK
+							if ( (form[x]['INPUT']['ACK'][0]['action'] !='ACCEPT') || (form[x]['OUTPUT']['ACK'][0]['action'] !='ACCEPT') ) {
+								alarm = `[eth${x}] ACK of eth${i} is ACCEPT, but ACK of INPUT or OUTPUT of eth${x} is DENY.`
+								callback(alarm);
+							}
+
+							// checking FIN series
+							for (let m=0; m<finInterface.length; m++) {
+								if ( finInterface[m] == 'INPUT' ) {
+									if ( (form[x]['INPUT']['FIN'][0]['action'] != 'ACCEPT') || (form[x]['OUTPUT']['FIN+ACK'][0]['action'] != 'ACCEPT') ) {
+										alarm = `[eth${x}] FIN of INPUT or FIN+ACK of OUTPUT is not ACCEPT.`;
+										callback(alarm);
+									}
+								}
+								else if ( finInterface[m] == 'OUTPUT' ) {
+									if ( (form[x]['OUTPUT']['FIN'][0]['action'] != 'ACCEPT') || (form[x]['INPUT']['FIN+ACK'][0]['action'] != 'ACCEPT') ) {
+										alarm = `[eth${x}] FIN of OUTPUT or FIN+ACK of INPUT is not ACCEPT.`;
+										callback(alarm);
+									}
+								}
+							}
+
+							// checking RST series
+							for (let m=0; m<finInterface.length; m++) {
+								if ( rstInterface[m] == 'INPUT' ) {
+									if ( form[x]['OUTPUT']['RST'][0]['action'] != 'ACCEPT' ) {
+										alarm = `[eth${x}] RST of INPUT of eth${i} is ACCEPT, but RST of OUTPUT of eth${x} is DENY.`;
+										callback(alarm);
+									}
+								}
+								else if ( rstInterface[m] == 'OUTPUT' ) {
+									if ( form[x]['INPUT']['RST'][0]['action'] != 'ACCEPT' ) {
+										alarm = `[eth${x}] RST of OUTPUT of eth${i} is ACCEPT, but RST of INPUT of eth${x} is DENY.`;
+										callback(alarm);
+									}
+								}
+							}
+
+
+						}
+
+
+
+
 						break;
 
 
@@ -422,8 +554,8 @@ function check_anomaly ( form, callback ) {
 							callback(alarm);
 						}
 
-						console.log('finInterface = ' + finInterface);
-						console.log('rstInterface = ' + rstInterface);
+						// console.log('finInterface = ' + finInterface);
+						// console.log('rstInterface = ' + rstInterface);
 						if ( alarm != null ) {
 							alarm = `[eth${i}] some warning is occured on current interface, please check information above.`
 							callback(alarm);
@@ -441,23 +573,23 @@ function check_anomaly ( form, callback ) {
 								alarm = `[eth${x}-INPUT] flag SYN is not ACCEPT.`
 								callback(alarm);
 							}
-							if ( form[i]['INPUT']['SYN+ACK'][0]['action'] != 'ACCEPT' ) {
+							if ( form[x]['INPUT']['SYN+ACK'][0]['action'] != 'ACCEPT' ) {
 								alarm = `[eth${i}-INPUT] flag SYN+ACK is not ACCEPT.`
 								callback(alarm);
 							}
-							if ( form[i]['INPUT']['ACK'][0]['action'] != 'ACCEPT' ) {
-								alarm = `[eth${i}-INPUT] flag ACK is nt ACCEPT.`
+							if ( form[x]['INPUT']['ACK'][0]['action'] != 'ACCEPT' ) {
+								alarm = `[eth${i}-INPUT] flag ACK is not ACCEPT.`
 								callback(alarm);
 							}
 							if ( form[x]['OUTPUT']['SYN'][0]['action'] != 'ACCEPT' ) {
 								alarm = `[eth${x}-OUTPUT] flag SYN is not ACCEPT.`
 								callback(alarm);
 							}
-							if ( form[i]['OUTPUT']['SYN+ACK'][0]['action'] != 'ACCEPT' ) {
+							if ( form[x]['OUTPUT']['SYN+ACK'][0]['action'] != 'ACCEPT' ) {
 								alarm = `[eth${i}-OUTPUT] flag SYN+ACK is not ACCEPT.`
 								callback(alarm);
 							}
-							if ( form[i]['OUTPUT']['ACK'][0]['action'] != 'ACCEPT' ) {
+							if ( form[x]['OUTPUT']['ACK'][0]['action'] != 'ACCEPT' ) {
 								alarm = `[eth${i}-OUTPUT] flag ACK is not ACCEPT.`
 								callback(alarm);
 							}
@@ -478,10 +610,19 @@ function check_anomaly ( form, callback ) {
 								}
 							}
 
+							// checking RST series
 							for (let m=0; m<finInterface.length; m++) {
-								if ( form[x][finInterface[m]]['FIN'][0]['action'] != 'ACCEPT' ){
-									alarm = `[eth${x}] FIN of OUTPUT or FIN+ACK of INPUT is not ACCEPT.`;
-									callback(alarm);
+								if ( rstInterface[m] == 'INPUT' ) {
+									if ( form[x]['OUTPUT']['RST'][0]['action'] != 'ACCEPT' ) {
+										alarm = `[eth${x}] RST of INPUT of eth${i} is ACCEPT, but RST of OUTPUT of eth${x} is DENY.`;
+										callback(alarm);
+									}
+								}
+								else if ( rstInterface[m] == 'OUTPUT' ) {
+									if ( form[x]['INPUT']['RST'][0]['action'] != 'ACCEPT' ) {
+										alarm = `[eth${x}] RST of OUTPUT of eth${i} is ACCEPT, but RST of INPUT of eth${x} is DENY.`;
+										callback(alarm);
+									}
 								}
 							}
 						}
